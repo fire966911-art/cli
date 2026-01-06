@@ -1,105 +1,136 @@
-# GitHub CLI
+Import flet as ft
+import threading
+import time
+import random
+from fpdf import FPDF
+from datetime import datetime
 
-`gh` is GitHub on the command line. It brings pull requests, issues, and other GitHub concepts to the terminal next to where you are already working with `git` and your code.
+# ==========================================
+# 1. طبقة الخدمات (Services Layer)
+# ==========================================
 
-![screenshot of gh pr status](https://user-images.githubusercontent.com/98482/84171218-327e7a80-aa40-11ea-8cd1-5177fc2d0e72.png)
+class ReportingService:
+    """مسؤول عن توليد تقارير الـ PDF بعد العمليات"""
+    @staticmethod
+    def generate_pdf(data):
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(200, 10, txt="MAKIN-911 MISSION REPORT", ln=True, align='C')
+        pdf.set_font("Arial", size=12)
+        pdf.ln(10)
+        for key, value in data.items():
+            pdf.cell(200, 10, txt=f"{key}: {value}", ln=True)
+        filename = f"Report_{data['ID']}.pdf"
+        pdf.output(filename)
+        return filename
 
-GitHub CLI is supported for users on GitHub.com, GitHub Enterprise Cloud, and GitHub Enterprise Server 2.20+ with support for macOS, Windows, and Linux.
+class CloudService:
+    """مسؤول عن المحاكاة السحابية (Cloud Sync)"""
+    @staticmethod
+    def sync_data(telemetry):
+        # هنا يتم الربط مع Firebase أو AWS مستقبلاً
+        pass
 
-## Documentation
+# ==========================================
+# 2. طبقة المنطق (Core Engine Layer)
+# ==========================================
 
-For [installation options see below](#installation), for usage instructions [see the manual]( https://cli.github.com/manual/).
+class MakinEngine:
+    """دماغ النظام: الذكاء الاصطناعي واتخاذ القرار"""
+    def __init__(self):
+        self.is_autonomous = False
+        self.current_temp = 0
+        self.mission_active = False
 
-## Contributing
+    def analyze_risk(self, temp):
+        self.current_temp = temp
+        if self.is_autonomous and temp > 950:
+            return "TRIGGER_INTERVENTION"
+        return "MONITORING"
 
-If anything feels off or if you feel that some functionality is missing, please check out the [contributing page](.github/CONTRIBUTING.md). There you will find instructions for sharing your feedback, building the tool locally, and submitting pull requests to the project.
+# ==========================================
+# 3. طبقة العرض (Presentation Layer - Flet)
+# ==========================================
 
-If you are a hubber and are interested in shipping new commands for the CLI, check out our [doc on internal contributions](docs/working-with-us.md)
+def main(page: ft.Page):
+    page.title = "MAKIN-911 | Operational Suite"
+    page.theme_mode = ft.ThemeMode.DARK
+    page.bgcolor = "#050505"
+    page.scroll = "adaptive"
+    
+    engine = MakinEngine()
+    
+    # عناصر الواجهة
+    title = ft.Text("MAKIN-911 SYSTEM", size=28, weight="bold", color="#00d4ff")
+    temp_display = ft.Text("0°C", size=60, weight="bold", color="#00d4ff")
+    status_msg = ft.Text("SYSTEM IDLE", color="#888")
+    log_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
 
-<!-- this anchor is linked to from elsewhere, so avoid renaming it -->
-## Installation
+    def log_event(msg, color="white"):
+        log_list.controls.append(ft.Text(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", color=color))
+        page.update()
 
-### [macOS](docs/install_macos.md)
+    # معالج الضغط على زر التدخل
+    def handle_intervention(e):
+        log_event("MANUAL INTERVENTION INITIATED", "#ff4b4b")
+        execute_extinguish()
 
-- [Homebrew](docs/install_macos.md#homebrew)
-- [Precompiled binaries](docs/install_macos.md#precompiled-binaries) on [releases page][]
+    def execute_extinguish():
+        engine.mission_active = True
+        status_msg.value = "EXECUTING KINETIC COOLING..."
+        page.update()
+        time.sleep(2)
+        log_event("FIRE EXTINGUISHED - SOVEREIGNTY ESTABLISHED", "green")
+        
+        # توليد تقرير تلقائي
+        report_data = {"ID": f"MSN-{random.randint(100,999)}", "Temp": engine.current_temp, "Status": "Success"}
+        file = ReportingService.generate_pdf(report_data)
+        log_event(f"REPORT GENERATED: {file}", "#00d4ff")
+        
+        status_msg.value = "SYSTEM READY"
+        engine.mission_active = False
+        page.update()
 
-For additional macOS packages and installers, see [community-supported docs](docs/install_macos.md#community-unofficial)
+    # محرك التحديث المباشر
+    def live_update():
+        while True:
+            t = random.randint(700, 1100)
+            temp_display.value = f"{t}°C"
+            
+            decision = engine.analyze_risk(t)
+            if decision == "TRIGGER_INTERVENTION" and not engine.mission_active:
+                log_event("AI DETECTED CRITICAL HEAT - ACTING NOW", "#ff4b4b")
+                execute_extinguish()
+            
+            page.update()
+            time.sleep(1)
 
-### [Linux & Unix](docs/install_linux.md)
+    # بناء الواجهة
+    page.add(
+        ft.Container(
+            content=ft.Column([
+                title,
+                ft.Divider(color="#222"),
+                ft.Row([
+                    ft.Text("AUTONOMOUS MODE"),
+                    ft.Switch(on_change=lambda e: setattr(engine, 'is_autonomous', e.control.value))
+                ], alignment="spaceBetween"),
+                ft.Container(
+                    content=temp_display,
+                    padding=40, bgcolor="#111", border_radius=20, alignment=ft.alignment.center
+                ),
+                status_msg,
+                ft.ElevatedButton("FORCE INTERVENTION", on_click=handle_intervention, bgcolor="#00d4ff", color="black"),
+                ft.Text("MISSION LOGS", size=14, color="#444"),
+                ft.Container(content=log_list, height=200, bgcolor="#0a0a0a", border_radius=10)
+            ], horizontal_alignment="center"),
+            padding=20
+        )
+    )
 
-- [Debian, Raspberry Pi, Ubuntu](docs/install_linux.md#debian)
-- [Amazon Linux, CentOS, Fedora, openSUSE, RHEL, SUSE](docs/install_linux.md#rpm)
-- [Precompiled binaries](docs/install_linux.md#precompiled-binaries) on [releases page][]
+    threading.Thread(target=live_update, daemon=True).start()
 
-For additional Linux & Unix packages and installers, see [community-supported docs](docs/install_linux.md#community-unofficial)
-
-### [Windows](docs/install_windows.md)
-
-- [WinGet](docs/install_windows.md#winget)
-- [Precompiled binaries](docs/install_windows.md#precompiled-binaries) on [releases page][]
-
-For additional Windows packages and installers, see [community-supported docs](docs/install_windows.md#community-unofficial)
-
-### Build from source
-
-See here on how to [build GitHub CLI from source](docs/install_source.md).
-
-### GitHub Codespaces
-
-To add GitHub CLI to your codespace, add the following to your [devcontainer file](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-features-to-a-devcontainer-file):
-
-```json
-"features": {
-  "ghcr.io/devcontainers/features/github-cli:1": {}
-}
-```
-
-### GitHub Actions
-
-[GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners) have the GitHub CLI pre-installed, which is updated weekly.
-
-If a specific version is needed, your GitHub Actions workflow will need to install it based on the [macOS](#macos), [Linux & Unix](#linux--unix), or [Windows](#windows) instructions above.
-
-For information on all pre-installed tools, see [`actions/runner-images`](https://github.com/actions/runner-images)
-
-### Verification of binaries
-
-Since version 2.50.0, `gh` has been producing [Build Provenance Attestation](https://github.blog/changelog/2024-06-25-artifact-attestations-is-generally-available/), enabling a cryptographically verifiable paper-trail back to the origin GitHub repository, git revision, and build instructions used. The build provenance attestations are signed and rely on Public Good [Sigstore](https://www.sigstore.dev/) for PKI.
-
-There are two common ways to verify a downloaded release, depending on whether `gh` is already installed or not. If `gh` is installed, it's trivial to verify a new release:
-
-- **Option 1: Using `gh` if already installed:**
-
-  ```shell
-  $ gh at verify -R cli/cli gh_2.62.0_macOS_arm64.zip
-  Loaded digest sha256:fdb77f31b8a6dd23c3fd858758d692a45f7fc76383e37d475bdcae038df92afc for file://gh_2.62.0_macOS_arm64.zip
-  Loaded 1 attestation from GitHub API
-  ✓ Verification succeeded!
-
-  sha256:fdb77f31b8a6dd23c3fd858758d692a45f7fc76383e37d475bdcae038df92afc was attested by:
-  REPO     PREDICATE_TYPE                  WORKFLOW
-  cli/cli  https://slsa.dev/provenance/v1  .github/workflows/deployment.yml@refs/heads/trunk
-  ```
-
-- **Option 2: Using Sigstore [`cosign`](https://github.com/sigstore/cosign):**
-
-  To perform this, download the [attestation](https://github.com/cli/cli/attestations) for the downloaded release and use cosign to verify the authenticity of the downloaded release:
-
-  ```shell
-  $ cosign verify-blob-attestation --bundle cli-cli-attestation-3120304.sigstore.json \
-        --new-bundle-format \
-        --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-        --certificate-identity="https://github.com/cli/cli/.github/workflows/deployment.yml@refs/heads/trunk" \
-        gh_2.62.0_macOS_arm64.zip
-  Verified OK
-  ```
-
-## Comparison with hub
-
-For many years, [hub](https://github.com/github/hub) was the unofficial GitHub CLI tool. `gh` is a new project that helps us explore
-what an official GitHub CLI tool can look like with a fundamentally different design. While both
-tools bring GitHub to the terminal, `hub` behaves as a proxy to `git`, and `gh` is a standalone
-tool. Check out our [more detailed explanation](docs/gh-vs-hub.md) to learn more.
-
-[releases page]: https://github.com/cli/cli/releases/latest
+if __name__ == "__main__":
+    ft.app(target=main)
+  
